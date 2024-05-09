@@ -161,3 +161,122 @@ Resources:
       RetentionPolicy: Retain
     Metadata:
       BuildMethod: makefile
+
+
+#####FUNCTIONS
+  VarianceGetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: variance/GET
+      Timeout: 60
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Layers:
+          - !Ref PermissionLayer
+          - !Ref DynamoLayer
+          - !Ref ResponseLayer
+          - !Ref LoggerLayer
+      Architectures:
+          - x86_64
+      Events:
+        variance:
+          Type: Api
+          Properties:
+            Path: /variance
+            Method: get
+  
+  VariancePostFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: variance/POST
+      Timeout: 60
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Layers:
+          - !Ref LoggerLayer
+      Architectures:
+          - x86_64
+      Events:
+        variance:
+          Type: Api
+          Properties:
+            Path: /variance
+            Method: post
+
+  VariancePutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: variance/PUT
+      Timeout: 60
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Layers:
+          - !Ref LoggerLayer
+      Architectures:
+          - x86_64
+      Events:
+        variance:
+          Type: Api
+          Properties:
+            Path: /variance
+            Method: put
+        
+  SubAreaGetFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: subArea/GET
+      Timeout: 60
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Layers:
+          - !Ref LoggerLayer
+      Architectures:
+          - x86_64
+      Events:
+        subArea:
+          Type: Api
+          Properties:
+            Path: /subArea
+            Method: get
+        
+  SubAreaPostFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: subArea/POST
+      Timeout: 60
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Layers:
+          - !Ref DynamoLayer
+          - !Ref KeycloakLayer
+          - !Ref FormulaLayer
+          - !Ref ResponseLayer
+          - !Ref PermissionLayer
+          - !Ref LoggerLayer
+          - !Ref SubAreaLayer
+      Architectures:
+          - x86_64
+      Events:
+        subArea:
+          Type: Api
+          Properties:
+            Path: /subArea
+            Method: post
+
+  SubAreaPutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: subArea/PUT
+      Timeout: 60
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Layers:
+          - !Ref LoggerLayer
+      Architectures:
+          - x86_64
+      Events:
+        subArea:
+          Type: Api
+          Properties:
+            Path: /subArea
+            Method: put        
