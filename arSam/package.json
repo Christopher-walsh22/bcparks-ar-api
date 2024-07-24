@@ -7,11 +7,17 @@
 	},
   	"jest": {
 		"verbose": true,
-		"globalSetup": "./__tests__/setup.js",
-		"globalTeardown": "./__tests__/teardown.js",
 		"modulePathIgnorePatterns": [
 			"<rootDir>/__tests__",
-			"<rootDir>/.aws-sam/"
+			"<rootDir>/.aws-sam/",
+			"<rootDir>/handlers/activity/",
+			"<rootDir>/handlers/export-variance/",
+			"<rootDir>/handlers/fiscalYearEnd/",
+			"<rootDir>/handlers/nameUpdate/",
+			"<rootDir>/handlers/park/",
+			"<rootDir>/handlers/subArea/",
+			"<rootDir>/handlers/variance/",
+			"<rootDir>/layers/"
     	],
 		"moduleNameMapper": {
 			"^/opt/baseLayer": "<rootDir>/.aws-sam/build/BaseLayer/baseLayer",
@@ -49,6 +55,7 @@
 		"svg-captcha": "^1.4.0",
 		"webpack": "^5.91.0",
 		"winston": "^3.8.0",
-		"write-excel-file": "^1.3.16"
+		"write-excel-file": "^1.3.16",
+		"crypto": "1.0.1"
 	}
 } 

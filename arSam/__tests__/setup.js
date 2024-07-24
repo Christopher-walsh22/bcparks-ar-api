@@ -1,9 +1,11 @@
-const { DynamoDB } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBClient, CreateTableCommand, DeleteTableCommand } = require('@aws-sdk/client-dynamodb');
 
-const { REGION, ENDPOINT, TABLE_NAME, CONFIG_TABLE_NAME, NAME_CACHE_TABLE_NAME } = require('./settings');
+const { REGION, ENDPOINT } = require('./settings');
+const crypto = require('crypto');
 
-module.exports = async () => {
-  dynamoDb = new DynamoDB({
+async function createDB (TABLE_NAME, NAME_CACHE_TABLE_NAME, CONFIG_TABLE_NAME) {
+  console.log("in create DB")
+  dynamoDb = new DynamoDBClient({
     region: REGION,
     endpoint: ENDPOINT
   });
@@ -11,9 +13,7 @@ module.exports = async () => {
   // TODO: This should pull in the JSON version of our serverless.yml!
 
   try {
-    console.log("Creating main table.");
-    await dynamoDb
-      .createTable({
+    let params =  {
         TableName: TABLE_NAME,
         KeySchema: [
           {
@@ -61,11 +61,10 @@ module.exports = async () => {
             }
           }
         ]
-      });
+      }
 
-    console.log("Creating name-cache table.");
-    await dynamoDb
-      .createTable({
+    await dynamoDb.send(new CreateTableCommand(params));
+    params = {
         TableName: NAME_CACHE_TABLE_NAME,
         KeySchema: [
           {
@@ -83,11 +82,10 @@ module.exports = async () => {
           ReadCapacityUnits: 1,
           WriteCapacityUnits: 1
         }
-      });
+      }
+    await dynamoDb.send(new CreateTableCommand(params))
 
-    console.log("Creating config table.");
-    await dynamoDb
-      .createTable({
+    params = {
         TableName: CONFIG_TABLE_NAME,
         KeySchema: [
           {
@@ -105,8 +103,53 @@ module.exports = async () => {
           ReadCapacityUnits: 1,
           WriteCapacityUnits: 1
         }
-      });
+      }
+    await dynamoDb.send(new CreateTableCommand(params));
+
   } catch (err) {
     console.log(err);
   }
 };
+
+function getHashedText(text) {
+  return crypto.createHash('md5').update(text).digest('hex');
+}
+
+async function deleteDB(TABLE_NAME, NAME_CACHE_TABLE_NAME, CONFIG_TABLE_NAME) {
+  console.log("In the delete!?")
+  const dynamoDb = new DynamoDBClient({
+    region: REGION,
+    endpoint: ENDPOINT
+  });
+
+  try {
+    //Delete Main Table
+    let param = {
+        TableName: TABLE_NAME
+      };
+
+    await dynamoDb.send(new DeleteTableCommand(param));
+
+    //Delete NameChache Table
+    param = {
+      TableName: NAME_CACHE_TABLE_NAME 
+    };
+    await dynamoDb.send(new DeleteTableCommand(param));
+
+    //Delete Config Table
+    param = {
+      TableName: CONFIG_TABLE_NAME
+    };
+    await dynamoDb.send(new DeleteTableCommand(param));
+
+
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+module.exports = {
+  createDB,
+  getHashedText,
+  deleteDB
+}
