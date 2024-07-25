@@ -1,5 +1,8 @@
 const { DynamoDBClient, CreateTableCommand, DeleteTableCommand } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBClient, CreateTableCommand, DeleteTableCommand } = require('@aws-sdk/client-dynamodb');
 
+const { REGION, ENDPOINT } = require('./settings');
+const crypto = require('crypto');
 const { REGION, ENDPOINT } = require('./settings');
 const crypto = require('crypto');
 
@@ -12,6 +15,7 @@ async function createDB (TABLE_NAME, NAME_CACHE_TABLE_NAME, CONFIG_TABLE_NAME) {
   // TODO: This should pull in the JSON version of our serverless.yml!
 
   try {
+    let params =  {
     let params =  {
         TableName: TABLE_NAME,
         KeySchema: [
@@ -61,7 +65,10 @@ async function createDB (TABLE_NAME, NAME_CACHE_TABLE_NAME, CONFIG_TABLE_NAME) {
           }
         ]
       }
+      }
 
+    await dynamoDb.send(new CreateTableCommand(params));
+    params = {
     await dynamoDb.send(new CreateTableCommand(params));
     params = {
         TableName: NAME_CACHE_TABLE_NAME,
@@ -83,7 +90,10 @@ async function createDB (TABLE_NAME, NAME_CACHE_TABLE_NAME, CONFIG_TABLE_NAME) {
         }
       }
     await dynamoDb.send(new CreateTableCommand(params))
+      }
+    await dynamoDb.send(new CreateTableCommand(params))
 
+    params = {
     params = {
         TableName: CONFIG_TABLE_NAME,
         KeySchema: [
@@ -102,6 +112,9 @@ async function createDB (TABLE_NAME, NAME_CACHE_TABLE_NAME, CONFIG_TABLE_NAME) {
           ReadCapacityUnits: 1,
           WriteCapacityUnits: 1
         }
+      }
+    await dynamoDb.send(new CreateTableCommand(params));
+
       }
     await dynamoDb.send(new CreateTableCommand(params));
 

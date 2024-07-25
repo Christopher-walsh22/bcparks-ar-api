@@ -31,6 +31,7 @@ async function setupDb(TABLE_NAME) {
       modifiedSubAreas.push(subArea);
 
       // Add the sub area record
+<<<<<<< HEAD
       // console.log("subarea record:", {
       //   pk: `park::${park.orcs}`,
       //   sk: `${subArea.id}`,
@@ -43,6 +44,20 @@ async function setupDb(TABLE_NAME) {
           sk: {S: `${subArea.id}`},
           activities: { SS : ['Day Use'] }
         }
+=======
+      console.log("subarea record:", {
+        pk: `park::${park.orcs}`,
+        sk: `${subArea.id}`,
+        activities: { SS : ['Day Use'] }
+      });
+      let params1 = {
+        TableName: TABLE_NAME,
+        Item: marshall({
+          pk: `park::${park.orcs}`,
+          sk: `${subArea.id}`,
+          activities: { SS : ['Day Use'] }
+        })
+>>>>>>> a81de6c43b33ddc374f94ebd4d80ccb4e5ea8253
       };
       await dynamoClient.send(new PutItemCommand(params1))
       
@@ -79,7 +94,10 @@ async function setupDb(TABLE_NAME) {
     park.subAreas = modifiedSubAreas;
 
     // Add the park record
+<<<<<<< HEAD
 
+=======
+>>>>>>> a81de6c43b33ddc374f94ebd4d80ccb4e5ea8253
     let params4 = {
       TableName: TABLE_NAME,
       Item: marshall(park),
@@ -114,12 +132,18 @@ describe("Sub Area Test", () => {
     TABLE_NAME = process.env.TABLE_NAME;
     NAME_CACHE_TABLE_NAME = TABLE_NAME.concat("-nameCache");
     CONFIG_TABLE_NAME = TABLE_NAME.concat("-config");
+<<<<<<< HEAD
     process.env.NAME_CACHE_TABLE_NAME = NAME_CACHE_TABLE_NAME
     process.env.CONFIG_TABLE_NAME= CONFIG_TABLE_NAME
     process.env.TABLE_NAME = TABLE_NAME
     await createDB(TABLE_NAME, NAME_CACHE_TABLE_NAME, CONFIG_TABLE_NAME);
     await setupDb(TABLE_NAME);
   }, 20000);
+=======
+    await createDB(TABLE_NAME, NAME_CACHE_TABLE_NAME, CONFIG_TABLE_NAME);
+    await setupDb(TABLE_NAME);
+  });
+>>>>>>> a81de6c43b33ddc374f94ebd4d80ccb4e5ea8253
 
   afterEach(() => {
     deleteDB(TABLE_NAME, NAME_CACHE_TABLE_NAME, CONFIG_TABLE_NAME);
@@ -136,6 +160,7 @@ describe("Sub Area Test", () => {
       endpoint: ENDPOINT
     });
 
+<<<<<<< HEAD
     let params = {
         TableName: CONFIG_TABLE_NAME,
         Key: marshall({
@@ -147,6 +172,19 @@ describe("Sub Area Test", () => {
     const lastID = config.Item === undefined ? 0 : config.Item.lastID;
 
     // TODO: need to unmarshall?
+=======
+    let configParams1 = {
+      TableName: CONFIG_TABLE_NAME,
+      Key: marshall({
+        pk: "subAreaID",
+      }),
+    };
+
+    await dynamoClient.send(new GetItemCommand(configParams1))
+
+    // TODO: need to unmarshall?
+    const lastID = Object.keys(configParams1).length === 0 ? 0 : configParams1.Item.lastID;
+>>>>>>> a81de6c43b33ddc374f94ebd4d80ccb4e5ea8253
 
     const subAreaPOST = require("../POST/index");
     const response = await subAreaPOST.handler(
@@ -181,8 +219,13 @@ describe("Sub Area Test", () => {
         pk: "subAreaID",
       }),
     };
+<<<<<<< HEAD
     const config2Res = await dynamoClient.send(new GetItemCommand(configParams2))
     const config2 = unmarshall(config2Res.Item);
+=======
+    await dynamoClient.send(new GetItemCommand(configParams2))
+
+>>>>>>> a81de6c43b33ddc374f94ebd4d80ccb4e5ea8253
     // check for incremented subAreaID
     expect(config2.lastID).toBeGreaterThan(lastID);
   });

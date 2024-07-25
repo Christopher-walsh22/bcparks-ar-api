@@ -1,5 +1,7 @@
 const { DynamoDBClient, PutItemCommand } = require('@aws-sdk/client-dynamodb');
 const { REGION, ENDPOINT } = require("../../../__tests__/settings");
+const { DynamoDBClient, PutItemCommand } = require('@aws-sdk/client-dynamodb');
+const { REGION, ENDPOINT } = require("../../../__tests__/settings");
 const { PARKSLIST, SUBAREAS, JOBSLIST, MOCKJOB } = require("../../../__tests__/mock_data.json");
 const { getHashedText, deleteDB, createDB } = require("../../../__tests__/setup");
 const { marshall } = require('@aws-sdk/util-dynamodb');
@@ -115,6 +117,7 @@ describe("Export Report", () => {
     try {
       body = JSON.parse(result.body)
     } catch (e) {
+      console.log("In this dumb catch")
       body = 'fail'
     }
     
