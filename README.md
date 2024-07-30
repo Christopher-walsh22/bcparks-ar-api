@@ -140,7 +140,7 @@ The `/opt` directory is only available at runtime within the SAM docker containe
     "^/opt/baseLayer": "<rootDir>/.aws-sam/build/BaseLayer/baseLayer",
     "^/opt/constantsLayer": "<rootDir>/.aws-sam/build/ConstantsLayer/constantsLayer",
     ...,
-    "^/opt/varianceLayer": "<rootDir>/.aws-sam/build/VarianceLayer/varianceLayer"
+    "^/opt/subAreaLayer": "<rootDir>/.aws-sam/build/subAreaLayer/subAreaLayer"
   ]
 }
 ```
@@ -189,7 +189,7 @@ To simplify troubleshooting, SAM CLI has a command called `sam logs`. `sam logs`
 `NOTE`: This command works for all AWS Lambda functions; not just the ones you deploy using SAM.
 
 ```bash
-arSam$ sam logs -n ConfigGet --stack-name arSam --tail
+arSam$ sam logs -n ConfigGet --stack-name ar-api --tail
 ```
 
 You can find more information and examples about filtering Lambda function logs in the [SAM CLI Documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-logging.html).

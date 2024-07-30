@@ -1,10 +1,7 @@
-const AWS = require("aws-sdk");
-const { DocumentClient } = require("aws-sdk/clients/dynamodb");
-const {
-  REGION,
-  ENDPOINT,
-  TABLE_NAME
-} = require("../../../__tests__/settings");
+const { DynamoDBClient, PutItemCommand } = require('@aws-sdk/client-dynamodb');
+const { REGION, ENDPOINT } = require("../../../__tests__/settings");
+const { getHashedText, deleteDB, createDB } = require("../../../__tests__/setup");
+const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 
 const jwt = require("jsonwebtoken");
 const tokenContent = {
@@ -12,58 +9,73 @@ const tokenContent = {
 };
 const token = jwt.sign(tokenContent, "defaultSecret");
 
-async function setupDb() {
-  new AWS.DynamoDB({
+async function setupDb(TABLE_NAME) {
+  const dynamoClient = new DynamoDBClient({
     region: REGION,
-    endpoint: ENDPOINT,
-  });
-  docClient = new DocumentClient({
-    region: REGION,
-    endpoint: ENDPOINT,
-    convertEmptyValues: true,
+    endpoint: ENDPOINT
   });
 
-  await docClient
-    .put({
-      TableName: TABLE_NAME,
-      Item: {
-        pk: `variance::0001::202201`,
-        sk: `0403::Day Use`,
-        fields: docClient.createSet(["peopleAndVehiclesVehicle"]),
-        notes: "A Note",
-        resolved: false,
-      },
-    })
-    .promise();
+  let params1 = {
+    TableName: TABLE_NAME,
+    Item: marshall({
+      pk: `variance::0001::202201`,
+      sk: `0403::Day Use`,
+      fields: { SS: ["peopleAndVehiclesVehicle"] },
+      notes: "A Note",
+      resolved: false,
+    }),
+  };
+  await dynamoClient.send(new PutItemCommand(params1))
 
-  await docClient
-    .put({
-      TableName: TABLE_NAME,
-      Item: {
-        pk: `variance::0001::202201`,
-        sk: `0403::Frontcountry Camping`,
-        fields: docClient.createSet(["peopleAndVehiclesVehicle"]),
-        notes: "A different note",
-        resolved: false,
-      },
-    })
-    .promise();
+  let params2 = {
+    TableName: TABLE_NAME,
+    Item: marshall({
+      pk: `variance::0001::202201`,
+      sk: `0403::Frontcountry Camping`,
+      fields: { SS: ["peopleAndVehiclesVehicle"] },
+      notes: "A different note",
+      resolved: false,
+    }),
+  };
+  await dynamoClient.send(new PutItemCommand(params2))
 
-  await docClient
-    .put({
-      TableName: TABLE_NAME,
-      Item: {
-        pk: `variance::0001::202202`,
-        sk: `0403::Day Use`,
-        fields: docClient.createSet(["peopleAndVehiclesVehicle"]),
-        notes: "A Note",
-        resolved: false,
-      },
-    })
-    .promise();
+  let params3 = {
+    TableName: TABLE_NAME,
+    Item: marshall({
+      pk: `variance::0001::202202`,
+      sk: `0403::Day Use`,
+      fields: { SS: ["peopleAndVehiclesVehicle"] },
+      notes: "A Note",
+      resolved: false,
+    }),
+  }
+  await dynamoClient.send(new PutItemCommand(params3))
 }
 
 describe("Variance Test", () => {
+  const OLD_ENV = process.env;
+  let hash
+  let TABLE_NAME
+  let NAME_CACHE_TABLE_NAME
+  let CONFIG_TABLE_NAME
+  
+  beforeEach(async () => {
+    jest.resetModules();
+    process.env = { ...OLD_ENV }; // Make a copy of environment
+    hash = getHashedText(expect.getState().currentTestName);
+    process.env.TABLE_NAME = hash
+    TABLE_NAME = process.env.TABLE_NAME;
+    NAME_CACHE_TABLE_NAME = TABLE_NAME.concat("-nameCache");
+    CONFIG_TABLE_NAME = TABLE_NAME.concat("-config");
+    await createDB(TABLE_NAME, NAME_CACHE_TABLE_NAME, CONFIG_TABLE_NAME);
+    await setupDb(TABLE_NAME);
+  }, 20000);
+
+  afterEach(() => {
+    deleteDB(TABLE_NAME, NAME_CACHE_TABLE_NAME, CONFIG_TABLE_NAME);
+    process.env = OLD_ENV; // Restore old environment
+  });
+
   const mockedUnauthenticatedInvalidUser = {
     roleFilter: jest.fn((records, roles) => {
       return {}
@@ -81,20 +93,6 @@ describe("Variance Test", () => {
       return records;
     }),
   };
-
-  const OLD_ENV = process.env;
-  beforeEach(async () => {
-    jest.resetModules();
-    process.env = { ...OLD_ENV }; // Make a copy of environment
-  });
-
-  afterEach(() => {
-    process.env = OLD_ENV; // Restore old environment
-  });
-
-  beforeAll(async () => {
-    return await setupDb();
-  });
 
   test("Variance GET Single PK Success", async () => {
     jest.mock("/opt/permissionLayer", () => {
@@ -249,7 +247,7 @@ describe("Variance Test", () => {
   });
 
   test("Variance should trigger", async () => {
-    const { calculateVariance } = require("/opt/varianceLayer");
+    const { calculateVariance } = require("/opt/baseLayer");
     const res = calculateVariance([8, 8, 8], 10, 0.2);
     expect(res).toEqual({
       averageHistoricValue: 8,
@@ -260,7 +258,7 @@ describe("Variance Test", () => {
   });
 
   test("Variance should trigger 2", async () => {
-    const { calculateVariance } = require("/opt/varianceLayer");
+    const { calculateVariance } = require("/opt/baseLayer");
     const res = calculateVariance([8.5, 8.5, 8.5], 10.8, 0.2);
     expect(res).toEqual({
       averageHistoricValue: 8.5,
@@ -271,7 +269,7 @@ describe("Variance Test", () => {
   });
 
   test("Variance should trigger 3", async () => {
-    const { calculateVariance } = require("/opt/varianceLayer");
+    const { calculateVariance } = require("/opt/baseLayer");
     const res = calculateVariance([8.5, 8.5, 8.5], 0.8, 0.2);
     expect(res).toEqual({
       averageHistoricValue: 8.5,
@@ -282,7 +280,7 @@ describe("Variance Test", () => {
   });
 
   test("Variance should not trigger", async () => {
-    const { calculateVariance } = require("/opt/varianceLayer");
+    const { calculateVariance } = require("/opt/baseLayer");
     const res = calculateVariance([10.2, 10.2, 10.2], 10.2, 0.25);
     expect(res).toEqual({
       averageHistoricValue: 10.2,
@@ -293,7 +291,7 @@ describe("Variance Test", () => {
   });
 
   test("Variance should calculate variance with two years", async () => {
-    const { calculateVariance } = require("/opt/varianceLayer");
+    const { calculateVariance } = require("/opt/baseLayer");
     const res = calculateVariance([8, 8, null], 10, 0.2);
     expect(res).toEqual({
       averageHistoricValue: 8,

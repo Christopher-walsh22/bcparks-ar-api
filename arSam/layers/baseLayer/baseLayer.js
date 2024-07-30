@@ -1,4 +1,4 @@
-// Logger, ResponseUtil, and DynamoUtilLayer are all included in this baseLayer
+// Logger, ResponseUtils, VarianceUtils and DynamoUtils are all included in this baseLayer
 
 // Logger
 const { createLogger, format, transports } = require('winston');
@@ -22,7 +22,7 @@ const logger = createLogger({
   transports: [new transports.Console()]
 });
 
-// ResponseUtil
+// ResponseUtils
 const sendResponse = function (code, data, context) {
   const response = {
     statusCode: code,
@@ -37,9 +37,69 @@ const sendResponse = function (code, data, context) {
   return response;
 };
 
-// DynamoUtil
-const { DynamoDB } = require('@aws-sdk/client-dynamodb');
+// VarianceUtils
+function calculateVariance(
+  historicalValues,
+  currentValue,
+  variancePercentage
+) {
+  const filteredInputs = historicalValues.filter((val) => val !== null && !isNaN(val));
+
+  logger.info("=== Calculating variance ===");
+  // We might receive two past years instead of three
+  const numberOfYearsProvided = filteredInputs.length;
+  logger.debug("Number of years provided:", numberOfYearsProvided);
+
+  // Get the average value across provided years
+  const averageHistoricValue = filteredInputs.reduce((acc, val) => acc + val, 0) / filteredInputs.length;
+  logger.debug("Average historic value:", averageHistoricValue);
+
+  // Calculate the percentage change only if averageHistoricValue is not zero
+  let percentageChange;
+  if (averageHistoricValue !== 0) {
+    percentageChange = Math.round(((currentValue - averageHistoricValue) / averageHistoricValue) * 100) / 100;
+  } else {
+    // Set percentageChange to 0 or some other default value if averageHistoricValue is zero
+    percentageChange = 0;
+  }
+
+  const percentageChangeAbs = Math.abs(percentageChange);
+
+  const varianceMessage = `Variance triggered: ${percentageChangeAbs >= variancePercentage ? "+" : "-"}${Math.round(percentageChangeAbs * 100)}%`;
+
+  // Since percentage change is absolute, we can subtract from variance percentage
+  // If negative, variance is triggered
+  const varianceTriggered = variancePercentage - percentageChangeAbs <= 0 ? true : false;
+  logger.info("Variance Triggered:", varianceTriggered);
+  logger.info("Variance percentageChange:", percentageChange);
+  logger.info("Variance variancePercentage:", variancePercentage);
+
+  const res = {
+    varianceMessage: varianceMessage,
+    varianceTriggered: varianceTriggered,
+    percentageChange: +percentageChange,
+    averageHistoricValue: averageHistoricValue
+  };
+  logger.info("Variance return obj:", res);
+  logger.info("=== Variance calculation complete ===");
+  return res;
+}
+
+// DynamoUtils
+const { DynamoDBClient,
+  GetItemCommand,
+  QueryCommand,
+  PutItemCommand,
+  UpdateItemCommand,
+  BatchWriteItemCommand,
+  TransactWriteItemsCommand,
+  ScanCommand,
+  DeleteItemCommand
+} = require('@aws-sdk/client-dynamodb');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { Lambda } = require("@aws-sdk/client-lambda");
 
 const TABLE_NAME = process.env.TABLE_NAME || "ParksAr-tests";
 const ORCS_INDEX = process.env.ORCS_INDEX || "orcs-index";
@@ -82,9 +142,9 @@ const RECORD_ACTIVITY_LIST = [
   "Boating",
 ];
 
-const dynamodb = new DynamoDB(options);
-
-exports.dynamodb = new DynamoDB();
+const dynamoClient = new DynamoDBClient(options);
+const s3Client = new S3Client({region: AWS_REGION});
+const lambda = new Lambda({region: AWS_REGION});
 
 // simple way to return a single Item by primary key.
 async function getOne(pk, sk) {
@@ -93,7 +153,7 @@ async function getOne(pk, sk) {
     TableName: TABLE_NAME,
     Key: marshall({ pk, sk }),
   };
-  let item = await dynamodb.getItem(params);
+  let item = await dynamoClient.send(new GetItemCommand(params));
   if (item?.Item) {
     return unmarshall(item.Item);
   }
@@ -103,17 +163,18 @@ async function getOne(pk, sk) {
 // (1MB) unless they are explicitly specified to retrieve more.
 // TODO: Ensure the returned object has the same structure whether results are paginated or not.
 async function runQuery(query, paginated = false) {
-  logger.debug("query:", query);
+  logger.info('query:', query);
   let data = [];
   let pageData = [];
   let page = 0;
-
+  const command = new QueryCommand(query);
+ 
   do {
     page++;
     if (pageData?.LastEvaluatedKey) {
-      query.ExclusiveStartKey = pageData.LastEvaluatedKey;
+      command.input.ExclusiveStartKey = pageData.LastEvaluatedKey;
     }
-    pageData = await dynamodb.query(query);
+    pageData = await dynamoClient.send(command);
     data = data.concat(
       pageData.Items.map((item) => {
         return unmarshall(item);
@@ -155,7 +216,7 @@ async function runScan(query, paginated = false) {
     if (pageData?.LastEvaluatedKey) {
       query.ExclusiveStartKey = pageData.LastEvaluatedKey;
     }
-    pageData = await dynamodb.scan(query);
+    pageData = await dynamoClient.send(new ScanCommand(query));
     data = data.concat(
       pageData.Items.map((item) => {
         return unmarshall(item);
@@ -228,7 +289,7 @@ async function batchWrite(items, action = 'put') {
       }
     } try {
 
-      await dynamodb.batchWriteItem(batchChunk);
+      await dynamoClient.send(new BatchWriteItemCommand(batchChunk));
     } catch (err) {
       for (const item of items) {
         logger.info('item.fields:', item.fields);
@@ -302,13 +363,14 @@ async function incrementAndGetNextSubAreaID() {
     },
     ReturnValues: "UPDATED_NEW",
   };
-  const response = await dynamodb.updateItem(configUpdateObj);
+  const response = await dynamoClient.send(new UpdateItemCommand(configUpdateObj));
   return response?.Attributes?.lastID?.N;
 }
 
 module.exports = {
   logger,
   sendResponse,
+  calculateVariance,
   ACTIVE_STATUS,
   RESERVED_STATUS,
   EXPIRED_STATUS,
@@ -322,7 +384,19 @@ module.exports = {
   TABLE_NAME,
   ORCS_INDEX,
   NAME_CACHE_TABLE_NAME,
-  dynamodb,
+  dynamoClient,
+  PutItemCommand,
+  UpdateItemCommand,
+  DeleteItemCommand,
+  BatchWriteItemCommand,
+  TransactWriteItemsCommand,
+  s3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  marshall,
+  unmarshall,
+  getSignedUrl,
+  lambda,
   runQuery,
   runScan,
   getOne,
